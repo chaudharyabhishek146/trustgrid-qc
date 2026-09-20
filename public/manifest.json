@@ -1,0 +1,9 @@
+{
+  "name": "TrustGrid QC — Gate Inspection",
+  "short_name": "TrustGrid QC",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "icons": []
+}
