@@ -70,10 +70,14 @@ async function tick(): Promise<boolean> {
 
     if (dependencyDown) {
       breakerOpenUntil = Date.now() + BREAKER_COOLDOWN_MS;
-      consecutiveFailures = 0;
+      // NOTE: consecutiveFailures is deliberately NOT reset here. It is reset
+      // only by a SUCCESS. Resetting it on open made the breaker forget it was
+      // degraded, so after each cooldown the job burned one more attempt and
+      // still exhausted its budget during a sustained outage (QA-D5).
       console.error(
-        `[${WORKER_ID}] ⚡ circuit breaker OPEN for ${BREAKER_COOLDOWN_MS / 1000}s — ` +
-        `dependency looks down. Jobs requeue without consuming their retry budget.`,
+        `[${WORKER_ID}] ⚡ circuit breaker OPEN for ${BREAKER_COOLDOWN_MS / 1000}s ` +
+        `(${consecutiveFailures} consecutive failures) — dependency looks down. ` +
+        `Jobs requeue without consuming their retry budget.`,
       );
     }
   }

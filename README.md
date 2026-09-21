@@ -264,8 +264,9 @@ Non-retryable statuses (400/403/413) fail fast rather than burning battery.
 | Gemini failure | Behaviour |
 |---|---|
 | 429 / 503 / timeout | Worker retries with jittered backoff; inspection sits at `processing` |
-| Sustained outage | **Circuit breaker** opens after 5 consecutive failures; jobs accumulate in the queue instead of failing. Drains automatically when service returns |
+| Sustained outage | **Circuit breaker** opens after 5 consecutive failures. While degraded, jobs requeue **without consuming their retry budget**, so a long outage cannot permanently park a valid inspection. Verified: 2-minute total outage, 0 jobs lost, all recovered automatically |
 | Malformed JSON | Recorded as `failed_parse` with the raw response kept; flagged for review |
+| Any failed attempt | Recorded in append-only history but **never becomes the current verdict** — a transient outage cannot blank out a reading already delivered to the inspector |
 | Implausible values | `needs_review` — the number never silently reaches an invoice |
 | Worker crashes mid-job | Job is never ACKed; `reapStaleJobs` requeues it after 5 minutes |
 
@@ -407,8 +408,13 @@ docker compose --profile s3 up -d && sed -i '' 's/STORAGE_BACKEND=local/STORAGE_
 
 All checks green as of the last run:
 
-- `npm test` — 11/11 unit tests (schema validation + plausibility gate)
-- `npm run e2e` — 19/19 end-to-end checks, including interrupted-upload resume,
-  a 5-way concurrent retry storm, and the calibration delta
-- `npx tsc --noEmit` — clean
-- Full capture → compress → upload → infer → display flow verified in a real browser
+| Suite | Result |
+|---|---|
+| `npm test` | 11/11 unit tests (schema validation + plausibility gate) |
+| `npm run e2e` | 23/23 end-to-end checks — resume, retry storm, calibration delta |
+| `npm run qa` | 53/53 adversarial checks — integrity, security, concurrency |
+| `npx tsc --noEmit` / `npm run build` | clean |
+
+A full beta QA pass — including dependency-outage injection against the live Gemini
+endpoint — is written up in **[QA-REPORT.md](QA-REPORT.md)**. It found 9 defects
+(3 HIGH); all are fixed and re-verified under their original failing conditions.
